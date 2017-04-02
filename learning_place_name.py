@@ -4,7 +4,7 @@ Created on Wed Mar 15 12:44:16 2017
 @author: j13-taniguchi
 """
 
-import os
+import os, glob
 import cv2
 import keras
 from keras.applications.imagenet_utils import preprocess_input
@@ -18,11 +18,12 @@ from random import shuffle
 from scipy.misc import imread
 from scipy.misc import imresize
 import tensorflow as tf
+import keras.backend.tensorflow_backend as KTF
 from keras.utils.visualize_util import plot
 import shutil
 
 
-path = "/Users/j13-taniguchi/study_tensorflow/keras_project/read_place/project_ssd"
+path = "/Users/JunTaniguchi/study_tensorflow/keras_project/read_place/project_ssd"
 os.chdir(path)
 
 from Generator import Generator
@@ -69,53 +70,58 @@ gen = Generator(gt, bbox_util, 16, path_prefix,
                 y_train, y_test,
                 (input_shape[0], input_shape[1]), do_crop=False)
 
-model = SSD300(input_shape, num_classes=NUM_CLASSES)
-model.summary()
-# モデルをpngでプロット
-plot(model,
-     to_file='./param/learning_place_name_v2.png', 
-     show_shapes=True,
-     show_layer_names=True)
-
-#model.load_weights('weights_SSD300.hdf5', by_name=True)
-
-freeze = ['input_1', 'conv1_1', 'conv1_2', 'pool1',
-          'conv2_1', 'conv2_2', 'pool2',
-          'conv3_1', 'conv3_2', 'conv3_3', 'pool3']#,
-#           'conv4_1', 'conv4_2', 'conv4_3', 'pool4']
-
-for L in model.layers:
-    if L.name in freeze:
-        L.trainable = False
-
-def schedule(epoch, decay=0.9):
-    return base_lr * decay**(epoch)
-
-callbacks = [keras.callbacks.ModelCheckpoint('./param/checkpoints/weights.{epoch:02d}-{val_loss:.2f}.hdf5',
-                                             verbose=1,
-                                             save_weights_only=True),
-             keras.callbacks.LearningRateScheduler(schedule),
-             keras.callbacks.EarlyStopping(monitor='val_loss', patience=0, verbose=0, mode='auto'),
-             #keras.callbacks.TensorBoard(log_dir='./logs', histogram_freq=1, write_graph=True)
-             ]
-
-base_lr = 3e-4
-optim = keras.optimizers.Adam(lr=base_lr)
-# optim = keras.optimizers.RMSprop(lr=base_lr)
-# optim = keras.optimizers.SGD(lr=base_lr, momentum=0.9, decay=decay, nesterov=True)
-model.compile(optimizer=optim,
-              loss=MultiboxLoss(NUM_CLASSES, neg_pos_ratio=2.0).compute_loss)
-
-nb_epoch = 30
-history = model.fit_generator(gen.generate(True),
-                              gen.train_batches,
-                              nb_epoch,
-                              verbose=1,
-                              callbacks=callbacks,
-                              validation_data=gen.generate(False),
-                              nb_val_samples=gen.val_batches,
-                              nb_worker=1)
-
+with tf.Graph().as_default():
+    session = tf.Session('')
+    KTF.set_session(session)
+    KTF.set_learning_phase(1)
+    
+    model = SSD300(input_shape, num_classes=NUM_CLASSES)
+    model.summary()
+    # モデルをpngでプロット
+    plot(model,
+         to_file='./param/learning_place_name_v2.png', 
+         show_shapes=True,
+         show_layer_names=True)
+    
+    #model.load_weights('weights_SSD300.hdf5', by_name=True)
+    
+    #freeze = ['input_1', 'conv1_1', 'conv1_2', 'pool1',
+    #          'conv2_1', 'conv2_2', 'pool2',
+    #          'conv3_1', 'conv3_2', 'conv3_3', 'pool3']#,
+    #           'conv4_1', 'conv4_2', 'conv4_3', 'pool4']
+    
+    #for L in model.layers:
+    #    if L.name in freeze:
+    #        L.trainable = False
+    
+    def schedule(epoch, decay=0.9):
+        return base_lr * decay**(epoch)
+    
+    callbacks = [keras.callbacks.ModelCheckpoint('./param/checkpoints/weights.{epoch:02d}-{val_loss:.2f}.hdf5',
+                                                 verbose=1,
+                                                 save_weights_only=True),
+                 keras.callbacks.LearningRateScheduler(schedule),
+                 keras.callbacks.EarlyStopping(monitor='val_loss', patience=0, verbose=0, mode='auto'),
+                 #keras.callbacks.TensorBoard(log_dir='./logs', histogram_freq=1, write_graph=True)
+                 ]
+    
+    base_lr = 3e-4
+    optim = keras.optimizers.Adam(lr=base_lr)
+    # optim = keras.optimizers.RMSprop(lr=base_lr)
+    # optim = keras.optimizers.SGD(lr=base_lr, momentum=0.9, decay=decay, nesterov=True)
+    model.compile(optimizer=optim,
+                  loss=MultiboxLoss(NUM_CLASSES, neg_pos_ratio=2.0).compute_loss)
+    
+    nb_epoch = 30
+    history = model.fit_generator(gen.generate(True),
+                                  gen.train_batches,
+                                  nb_epoch,
+                                  verbose=1,
+                                  callbacks=callbacks,
+                                  validation_data=gen.generate(False),
+                                  nb_val_samples=gen.val_batches,
+                                  nb_worker=1)
+    
 inputs = []
 images = []
 img_path = path_prefix + sorted(y_test)[0]
@@ -180,4 +186,4 @@ for i, img in enumerate(images):
         currentAxis.add_patch(plt.Rectangle(*coords, fill=False, edgecolor=color, linewidth=2))
         currentAxis.text(xmin, ymin, display_txt, bbox={'facecolor':color, 'alpha':0.5})
     
-    plt.show()  
+    plt.show()

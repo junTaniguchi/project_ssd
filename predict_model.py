@@ -1,70 +1,70 @@
 # -*- coding: utf-8 -*-
 """
-Created on Wed Mar  8 00:30:50 2017
-@author: JunTaniguchi
+Created on Thu Mar  9 17:15:52 2017
+@author: j13-taniguchi
 """
 
+import os
 import cv2
 import keras
-import os
 from keras.applications.imagenet_utils import preprocess_input
 from keras.backend.tensorflow_backend import set_session
 from keras.models import Model
+from keras.models import model_from_json
 from keras.preprocessing import image
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.misc import imread
 import tensorflow as tf
-# SSDのユーティリティ
-path = "/Users/j13-taniguchi/study_tensorflow/keras_project"
+
+path = "/Users/Juntaniguchi/study_tensorflow/keras_project/read_place"
 os.chdir(path)
+
 from ssd import SSD300
 from ssd_utils import BBoxUtility
+from use_spp_net_model import use_spp_net_model
+
 
 plt.rcParams['figure.figsize'] = (8, 8)
 plt.rcParams['image.interpolation'] = 'nearest'
 
 np.set_printoptions(suppress=True)
 
+
 config = tf.ConfigProto()
 config.gpu_options.per_process_gpu_memory_fraction = 0.45
 set_session(tf.Session(config=config))
 
-# クラスの種類
-path = "/Users/j13-taniguchi/study_tensorflow/keras_project/read_place"
-os.chdir(path)
-
-#地名のリストを作成
+# 地名のリストを作成
 with open("./param/place_tokyo.txt", "r") as place_file:
     place_list = place_file.readlines()
-    voc_classes = [place_str.strip() for place_str in place_list]
-    
-    
-NUM_CLASSES = len(voc_classes) + 1
+    place_list = [place_str.strip() for place_str in place_list]
+NUM_CLASSES = len(place_list)
 
-# 分類器
-input_shape=(300, 300, 3)
-model = SSD300(input_shape, num_classes=NUM_CLASSES)
-model.load_weights('weights_SSD300.hdf5', by_name=True)
+
+def schedule(epoch, decay=0.9):
+    return base_lr * decay**(epoch)
+
+base_lr = 3e-4
+optim = keras.optimizers.Adam(lr=base_lr)
+
+# modelのロード
+model = use_spp_net_model(input_shape=(None, None, 3),
+                          NUM_CLASSES=NUM_CLASSES,
+                          optim=optim)
+
+model.load_weights('./param/learning_place_name.hdf5', by_name=True)
 bbox_util = BBoxUtility(NUM_CLASSES)
-
-# 画像を取得
-
-image_w = 300
-image_h = 300
 
 inputs = []
 images = []
-
-img_path = './ssd_keras/pics/fish-bike.jpg'
-img = image.load_img(img_path, target_size=(image_w, image_h))
+img_path = './incorrect/東京/東京221.png'
+img = image.load_img(img_path)
 img = image.img_to_array(img)
 images.append(imread(img_path))
 inputs.append(img.copy())
-
 inputs = preprocess_input(np.array(inputs))
 
-# predict
 preds = model.predict(inputs, batch_size=1, verbose=1)
 
 results = bbox_util.detection_out(preds)
@@ -100,7 +100,7 @@ for i, img in enumerate(images):
         ymax = int(round(top_ymax[i] * img.shape[0]))
         score = top_conf[i]
         label = int(top_label_indices[i])
-        label_name = voc_classes[label - 1]
+        label_name = NUM_CLASSES[label - 1]
         display_txt = '{:0.2f}, {}'.format(score, label_name)
         coords = (xmin, ymin), xmax-xmin+1, ymax-ymin+1
         color = colors[label]

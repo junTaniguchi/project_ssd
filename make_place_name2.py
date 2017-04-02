@@ -6,7 +6,7 @@ import numpy as np
 from keras.utils import np_utils
 import pickle
 
-path = "/Users/j13-taniguchi/study_tensorflow/keras_project/read_place/project_ssd"
+path = "/Users/Juntaniguchi/study_tensorflow/keras_project/read_place/project_ssd"
 os.chdir(path)
 
 #フォンントのリストを作成
@@ -43,11 +43,13 @@ def gaussianBlur_image(img_name,
     # opencvのガウシアンフィルターを適応
     blur = cv2.GaussianBlur(image_np, (5, 5), 0)
     blur_image = Image.fromarray(blur)
-    file_dir = "./image/"
-    file_name = str(idx1) + img_name + "_" + place_name + "_" + str(x_min_pixel) + "_" + str(y_min_pixel) + "_" + str(x_max_pixel) + "_" + str(y_max_pixel) + '.png'
-    img_file_name =  file_dir + file_name
+    #file_dir = "./image/"
+    #file_name = str(idx1) + img_name + "_" + place_name + "_" + str(x_min_pixel) + "_" + str(y_min_pixel) + "_" + str(x_max_pixel) + "_" + str(y_max_pixel) + '.png'
+    file_name = place_name
+    #print(file_name)
+    #img_file_name =  file_dir + file_name
     # 画像ファイルを保存する
-    blur_image.save(img_file_name, 'PNG')
+    #blur_image.save(img_file_name, 'PNG')
     xmin = x_min_pixel / (x_max_pixel - x_min_pixel)
     ymin = y_min_pixel / (y_max_pixel - y_min_pixel)
     xmax = x_max_pixel / (x_max_pixel - x_min_pixel)
@@ -60,22 +62,22 @@ def gaussianBlur_image(img_name,
     img_detail_cordinate.append([img_detail])
     img_detail_devision.append(idx2)
    
-def make_img (img_name,
+def make_img (X,
+              Y,
+              img_name,
               jp_font_list, 
               place_list, 
               x_pixel, 
               y_pixel, 
               color):
 
-    X = []
+    
     file_name_list = []
     img_detail_cordinate = []
     img_detail_devision = []
-    label_dict = {}
-    Y = []
 
     for idx1, jp_font in enumerate(jp_font_list):
-        for font_size in range(y_pixel-250, y_pixel-249):
+        for font_size in range(y_pixel-250, y_pixel-230):
             # フォントの指定。引数は順に「フォントのパス」「フォントのサイズ」「エンコード」
             # メソッド名からも分かるようにTure Typeのフォントを指定する
             font = ImageFont.truetype(jp_font, font_size)
@@ -119,26 +121,29 @@ def make_img (img_name,
                                                file_name_list,
                                                img_detail_cordinate,
                                                img_detail_devision)
-    # Xをpickleファイルへ変換
-    X = np.array(X)
-    with open('./param/place_name_X.pkl', 'wb') as f:
-        pickle.dump(X, f)
-        f.close()
         
-    img_detail_one_hot = np_utils.to_categorical(img_detail_devision, len(place_list)) 
-    for idx, cordinate in enumerate(img_detail_cordinate):
-        name = file_name_list[idx]
-        detail = np.hstack((np.reshape(np.array(cordinate),(1,4)), np.reshape(img_detail_one_hot[idx],(1,len(place_list)))))
-        label_dict[name] = detail
-    Y = label_dict
-    print(Y)
-    with open('./param/place_name_Y.pkl', 'wb') as f:
-        pickle.dump(label_dict, f)
-        f.close()
-        #np.savez("./param/npz/place_name_%s_%s_%s.npz" % (str(font_size), str(x_pixel), str(y_pixel)), x=X, y=Y)
-    print("ok,", len(Y))
+    img_detail_one_hot = np_utils.to_categorical(img_detail_devision, len(place_list))
+    np_cordinate = np.array(img_detail_cordinate)
+    cordinate = np.reshape(np_cordinate, (len(np_cordinate), 4))
+    detail = np.hstack((cordinate, img_detail_one_hot))
+    #for idx, cordinate in enumerate(img_detail_cordinate):
+    #    detail = np.hstack(np.reshape(np.array(cordinate),(1,4)), np.reshape(img_detail_one_hot[idx],(1,len(place_list))))
+    Y.append(detail)
+    #print(Y)
+    return X, Y
 
-for y_pixel in [300]:
-    for x_pixel in [300]:#range(170, 180):
-        make_img("1", jp_font_list, place_list, x_pixel=x_pixel, y_pixel=y_pixel, color="blue")
-        #make_img("2", jp_font_list, place_list, x_pixel=x_pixel, y_pixel=y_pixel, color="green")
+y_pixel = 300
+x_pixel = 300
+X = []
+Y = []
+X, Y = make_img(X, Y, "1", jp_font_list, place_list, x_pixel=x_pixel, y_pixel=y_pixel, color="blue")
+#X, Y = make_img(X, Y, "2", jp_font_list, place_list, x_pixel=x_pixel, y_pixel=y_pixel, color="green")
+
+X = np.array(X)
+Y = np.array(Y)
+
+Y = np.reshape(Y, (Y.shape[1], Y.shape[2]))
+print(X.shape)
+print(Y.shape)
+np.savez("./param/npz/place_name.npz", x=X, y=Y)
+print("ok,", len(Y))

@@ -129,9 +129,13 @@ class BBoxUtility(object):
                 assignment[:, -8] has 1 if prior should be penalized
                     or in other words is assigned to some ground truth box,
                 assignment[:, -7:] are all 0. See loss for more details.
+        num_priorsは(7308, 8)
+        num_classesは4
         """
+        #assignment(7308, 16)
         assignment = np.zeros((self.num_priors, 4 + self.num_classes + 8))
         assignment[:, 4] = 1.0
+        #トレーニング用の画像データのdict_key
         if len(boxes) == 0:
             return assignment
         encoded_boxes = np.apply_along_axis(self.encode_box, 1, boxes[:, :4])
